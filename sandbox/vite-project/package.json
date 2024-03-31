@@ -1,0 +1,23 @@
+{
+  "name": "vite-project",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview",
+    "reflesh": "rm -rf ./node_modules && yarn"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.51",
+    "vue": "^3.4.21",
+    "@sYamaz/canvas-diagrams": "file:../../"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0",
+    "vue-tsc": "^2.0.6"
+  }
+}

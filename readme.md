@@ -1,0 +1,1 @@
+https://zenn.dev/taroshun32/articles/npm-package-original
