@@ -1,19 +1,49 @@
 import { DataModel } from "./DataModel";
 import { ILayer } from "./ILayer";
 import { ToolManager } from "./ToolManager";
-import { CustomPointerEvent } from "./datatypes/PointerEvent";
+import { CustomKeyboardEvent, CustomMouseEvent, CustomPointerEvent } from "./datatypes/PointerEvent";
+import { TextEditEndEvent, TextEditEnterEvent } from "./datatypes/TextEditEvent";
 import { TypedEvent } from "./datatypes/TypedEvent";
 
 export class Layer implements ILayer {
 
     readonly onRenderRequested = new TypedEvent<void>
-
+    readonly onEnterEditing = new TypedEvent<TextEditEnterEvent>
+    readonly onEndEditing = new TypedEvent<TextEditEndEvent>
+    readonly onEndEdit = new TypedEvent<TextEditEndEvent>()
     constructor(private readonly layerIndex:number, private readonly toolManager: ToolManager, private readonly dataModel: DataModel){
     }
+
 
     render(ctx: CanvasRenderingContext2D) {
         this.dataModel.getLayerObjects(this.layerIndex).forEach(obj => {
             this.toolManager.getTool(obj.type)?.renderObject(ctx, obj)
+        })
+    }
+
+    receiveKeyEvent(ev: CustomKeyboardEvent): void {
+        const currentTool = this.toolManager.getCurrentTool()
+        if(currentTool) { // tool選択時のキー入力は今のところ用途が無い
+            return
+        }
+
+        this.dataModel.getLayerObjects(this.layerIndex).forEach(obj => {
+            obj.keyInput(ev)
+        })
+    }
+
+    receiveDoubleClickEvent(ev: CustomMouseEvent): void {
+        const currentTool = this.toolManager.getCurrentTool()
+        if(currentTool) { // tool選択時のダブルクリックは今のところ用途が無い
+            return
+        }
+
+        this.dataModel.getLayerObjects(this.layerIndex).forEach(obj => {
+            obj.doubleclick(ev, {
+                onEnterEditing: (ev) => {
+                    this.onEnterEditing.emit(ev)
+                },
+            })
         })
     }
 
@@ -28,7 +58,11 @@ export class Layer implements ILayer {
         }
 
         this.dataModel.getLayerObjects(this.layerIndex).forEach(obj => {
-            obj.pointerDown(ev)
+            obj.pointerDown(ev, {
+                onEndEdit: (ev) => {
+                    this.onEndEdit.emit(ev)
+                }
+            })
         })
         
         this.onRenderRequested.emit()

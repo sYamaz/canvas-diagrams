@@ -1,6 +1,6 @@
 
 import { ITool } from "../ITool";
-import { CustomPointerEvent } from "../datatypes/PointerEvent";
+import { CustomKeyboardEvent, CustomMouseEvent, CustomPointerEvent } from "../datatypes/PointerEvent";
 import { DataModel } from "../DataModel"
 import { IObjectData } from "../IObjectData";
 
@@ -12,6 +12,12 @@ interface StrokePoint {
 }
 
 class StrokeObject implements IObjectData {
+    doubleclick(ev: CustomMouseEvent): void {
+        
+    }
+    keyInput(ev: CustomKeyboardEvent): void {
+        
+    }
     render(ctx: CanvasRenderingContext2D): void {
         ctx.strokeStyle = 'black'
         ctx.lineWidth = 0.5

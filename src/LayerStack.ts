@@ -2,8 +2,9 @@ import { ILayer } from "./ILayer";
 import { ILayerStack } from "./ILayerStack";
 import { ToolManager } from "./ToolManager";
 import { Point } from "./datatypes/Point";
-import { CustomPointerEvent } from "./datatypes/PointerEvent";
+import { CustomKeyboardEvent, CustomMouseEvent, CustomPointerEvent } from "./datatypes/PointerEvent";
 import { Rect } from "./datatypes/Rect";
+import { TextEditEndEvent, TextEditEnterEvent } from "./datatypes/TextEditEvent";
 import { TypedEvent } from "./datatypes/TypedEvent";
 
 class BgRectangle implements Rect {
@@ -34,8 +35,9 @@ export class LayerStack implements ILayerStack {
     private layers: ILayer[]
     private selectedLayer = 0
 
-    readonly onRenderRequested = new TypedEvent<void>
-
+    readonly onRenderRequested = new TypedEvent<void>()
+    readonly onEnterEditing = new TypedEvent<TextEditEnterEvent>()
+    readonly onEndEdit = new TypedEvent<TextEditEndEvent>()
     constructor(defaultLayers: ILayer[], private readonly toolManager: ToolManager) {
         this.layers = defaultLayers
         // renderRequestedの伝搬
@@ -43,12 +45,29 @@ export class LayerStack implements ILayerStack {
             layer.onRenderRequested.on(() => {
                 this.onRenderRequested.emit()
             })
+
+            layer.onEnterEditing.on((ev) => {
+                this.onEnterEditing.emit(ev)
+            })
+
+            layer.onEndEdit.on((ev) => {
+                this.onEndEdit.emit(ev)
+            })
         })
 
         this.toolManager.onToolChanged.on(_ => {
             this.layers.forEach(layer => layer.resetObjectState())
             this.onRenderRequested.emit()
         })
+    }
+    
+
+    receiveKeyEvent(ev: CustomKeyboardEvent): void {
+        this.layers[this.selectedLayer].receiveKeyEvent(ev)
+    }
+
+    receiveDoubleClickEvent(ev: CustomMouseEvent): void {
+        this.layers[this.selectedLayer].receiveDoubleClickEvent(ev)
     }
 
     receivePointerDownEvent(ev: CustomPointerEvent): void {

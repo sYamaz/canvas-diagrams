@@ -1,8 +1,9 @@
 import { IViewPortQuery } from "./IViewPortQuery";
 import { IViewPortCommand } from "./IViewPortCommand";
-import {CustomPointerEvent} from './datatypes/PointerEvent'
+import {CustomKeyboardEvent, CustomMouseEvent, CustomPointerEvent} from './datatypes/PointerEvent'
 import { TypedEvent } from './datatypes/TypedEvent';
 import { ILayerStack } from "./ILayerStack";
+import { TextEditEndEvent, TextEditEnterEvent } from "./datatypes/TextEditEvent";
 
 export class DiagramViewPort implements IViewPortCommand, IViewPortQuery {
     private readonly layerStack: ILayerStack
@@ -16,13 +17,31 @@ export class DiagramViewPort implements IViewPortCommand, IViewPortQuery {
         0, // f/dy 垂直移動
     ]
     readonly onRenderRequested:TypedEvent<void> = new TypedEvent()
+    readonly onEnterEditing = new TypedEvent<TextEditEnterEvent>()
+    readonly onEndEdit = new TypedEvent<TextEditEndEvent>;
 
     constructor(layerStack: ILayerStack) {
         this.layerStack = layerStack
         this.layerStack.onRenderRequested.on(() => {
             this.onRenderRequested.emit()
         })
+        this.layerStack.onEnterEditing.on(((ev) => {
+            // convert from absolute x/y/width to transformed x/y/width
+            console.log("vp: enter editing")
+
+            const txEv: TextEditEnterEvent = {
+                width: this.transform[0] * ev.width,
+                x: this.transform[0] * ev.x + this.transform[4],
+                y: this.transform[3] + ev.y + this.transform[5],
+                target: ev.target
+            }
+            this.onEnterEditing.emit(txEv)
+        }))
+        this.layerStack.onEndEdit.on((ev) => {
+            this.onEndEdit.emit(ev)
+        })
     }
+    
 
     // viewport上の座標を絶対座標に変換する
     private convertRelX2AbsX(rel: {x:number, y:number}): {x:number, y:number} {
@@ -42,6 +61,29 @@ export class DiagramViewPort implements IViewPortCommand, IViewPortQuery {
             timestamp: relative.timeStamp,
             used: false
         }
+    }
+
+    receiveKeyEvent(ev: KeyboardEvent): void {
+        const keyEv:CustomKeyboardEvent = {
+            key: ev.key,
+            altKey: ev.altKey,
+            ctrlKey: ev.ctrlKey,
+            metaKey: ev.metaKey,
+            shiftKey: ev.shiftKey,
+            used: false
+        }
+        this.layerStack.receiveKeyEvent(keyEv)
+    }
+
+    receiveDoubleClickEvent(ev: MouseEvent): void {
+        const {x, y} = this.convertRelX2AbsX({x: ev.offsetX, y: ev.offsetY})
+        const absEv: CustomMouseEvent = {
+            x, y,
+            timestamp: ev.timeStamp,
+            used: false
+        }
+
+        this.layerStack.receiveDoubleClickEvent(absEv)
     }
 
     receivePointerDownEvent(ev: PointerEvent): void {

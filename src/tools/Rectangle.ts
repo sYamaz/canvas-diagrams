@@ -2,11 +2,13 @@ import { DataModel } from "../DataModel";
 import { IObjectData } from "../IObjectData";
 import { ITool } from "../ITool";
 import { ToolManager } from "../ToolManager";
-import { CustomPointerEvent } from "../datatypes/PointerEvent";
+import { CustomKeyboardEvent, CustomMouseEvent, CustomPointerEvent } from "../datatypes/PointerEvent";
 import { CursorPositionType } from "./CursorPositionType";
 import { IControl } from "./IControl";
 import { ResizeControl } from "./controls/ResizeControl";
 import { MoveControl } from "./controls/MoveControl";
+import { ITextEditor } from "../datatypes/ITextEditor";
+import { TextEditEndEvent, TextEditEnterEvent } from "../datatypes/TextEditEvent";
 
 const posTypeToCursor = new Map<CursorPositionType, string>([
     ['topLeft', "nw-resize"],
@@ -21,20 +23,28 @@ const posTypeToCursor = new Map<CursorPositionType, string>([
     ['center', 'move']
 ])
 
-class RectangleObject implements IObjectData {
+class RectangleObject implements IObjectData, ITextEditor {
     // 永続化対象の状態
     type: string = "rectangle"
     x: number = 0
     y: number = 0
     width: number = 0
     height: number = 0
+    strokeWidth: number = 1
+    strokeStyle: string = 'black'
+    fillStyle: string = 'transparent'
+
     fixed: boolean = false
     // 一時的な状態
+    editing: boolean = false
     selected: boolean = false
     hoverType: CursorPositionType = 'none'
     draggingType: CursorPositionType = 'none'
     dragFromX: number = -1
     dragFromY: number = -1
+    editCell?: HTMLDivElement
+
+    text: string = ""
 
     private readonly controls: IControl[]
     constructor() {
@@ -88,6 +98,12 @@ class RectangleObject implements IObjectData {
             })
         ]
     }
+    setText(html: string): void {
+        this.text = html
+    }
+    getText(): string {
+        return this.text
+    }
 
     isDragging(): boolean {
         return this.draggingType != 'none'
@@ -98,17 +114,38 @@ class RectangleObject implements IObjectData {
         this.selected = false
         this.draggingType = 'none'
     }
-    pointerDown(ev: CustomPointerEvent) {
+    pointerDown(ev: CustomPointerEvent, option?: {
+        onEndEdit?: (ev: TextEditEndEvent) => void
+    }) {
         // イベントが消費済みだったらreturn
         if (ev.used) {
             this.selected = false
             this.draggingType = 'none'
+            this.endEdit()
+
+            if (option) {
+                if(option.onEndEdit) {
+                    option.onEndEdit({
+                        target: this
+                    })
+                }
+            }
+
             return
         }
 
         if (this.hoverType === 'none') {
             this.selected = false
             this.draggingType = 'none'
+            this.endEdit()
+
+            if (option) {
+                if(option.onEndEdit) {
+                    option.onEndEdit({
+                        target: this
+                    })
+                }
+            }
         } else {
             // center以外はすでにslected=trueになっているはず
             this.selected = true
@@ -129,7 +166,7 @@ class RectangleObject implements IObjectData {
         if (ctrl) {
             this.hoverType = ctrl.type
             ev.used = true
-        }
+        } 
 
         if (this.draggingType !== 'none') {
             const ctrl = this.controls.find(control => control.type === this.draggingType)
@@ -146,12 +183,70 @@ class RectangleObject implements IObjectData {
         this.dragFromY = -1
     }
 
+    doubleclick(ev: CustomMouseEvent, option?: {
+        onEnterEditing?: (ev: TextEditEnterEvent) => void
+    }): void {
+        if(!this.controls.some(control => control.include(ev.x, ev.y))) {
+            return
+        }
+        if (!this.editing) {
+            if (option) {
+                if (option.onEnterEditing) {
+                    option.onEnterEditing({
+                        width: this.width,
+                        x: this.x,
+                        y: this.y,
+                        target: this
+                    })
+                    this.editing = true
+                }
+            }
+        }
+    }
+
+
+    private endEdit() {
+        this.editing = false
+    }
+
+    keyInput(ev: CustomKeyboardEvent): void {
+        if (this.selected && !this.editing) {
+            switch (ev.key) {
+                case 'ArrowRight':
+                    this.x += 10
+                    break
+                case 'ArrowLeft':
+                    this.x -= 10
+                    break
+                case 'ArrowUp':
+                    this.y += 10
+                    break
+                case 'ArrowDown':
+                    this.y -= 10
+                    break
+                default:
+                    break
+            }
+        }
+
+        if (this.editing && ev.key === 'Escape') {
+            this.endEdit()
+        }
+    }
+
     render(ctx: CanvasRenderingContext2D): void {
         // draw self
-        ctx.lineWidth = 1
-        ctx.strokeStyle = 'black'
+        ctx.lineWidth = this.strokeWidth
+        ctx.strokeStyle = this.strokeStyle
+        ctx.fillStyle = this.fillStyle
+        ctx.fillRect(this.x, this.y, this.width, this.height)
         ctx.strokeRect(this.x, this.y, this.width, this.height)
-
+        console.log(this.text, this.x, this.y, ctx.font)
+        
+        const cacheFillStyle = ctx.fillStyle
+        ctx.fillStyle = 'black'
+        ctx.fillText(this.text, this.x, this.y + 10)
+        ctx.fillStyle = cacheFillStyle
         // change mouse cursor
         const cursor = posTypeToCursor.get(this.hoverType)
         if (cursor) {
